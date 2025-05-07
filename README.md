@@ -1,149 +1,109 @@
-[![CodeGuide](/codeguide-backdrop.svg)](https://codeguide.dev)
+# Atlas Vite + Supabase Project Management Starter Kit
 
-# CodeGuide Vite + Supabase Starter
+A modern project management application built with Vite, React, and Supabase, designed to showcase integration with the Atlas SDK. This project demonstrates "vibe coding" techniques for creating responsive, feature-rich applications that can be enhanced with Atlas's capabilities.
 
-A modern web application starter template built with Vite and React, featuring a beautiful UI and Supabase integration.
+![Project Preview](https://github.com/RunOnAtlas/atlas-vite-supabase-starterkit-project-mgmt/raw/main/public/codeguide-backdrop.svg)
+
+## About This Project
+
+This starter kit was created to demonstrate a smooth integration path for the Atlas SDK. The project includes:
+
+- A complete project management system with dashboards, tasks, and custom fields
+- Role-based user collaboration features
+- Data visualization using charts and metrics
+- Robust authentication using Clerk.com
+
+The codebase showcases clean architecture principles and "vibe coding" techniques, which prioritize developer experience, maintainability, and scalable patterns.
 
 ## Tech Stack
 
-- **Framework:** [Vite](https://vitejs.dev/) + [React](https://react.dev/)
-- **Database:** [Supabase](https://supabase.com/)
-- **Styling:** [Tailwind CSS](https://tailwindcss.com/)
-- **UI Components:** [shadcn/ui](https://ui.shadcn.com/)
-- **Data Management:** [TanStack Query](https://tanstack.com/query)
-- **Form Handling:** [React Hook Form](https://react-hook-form.com/)
-- **Animations:** [Framer Motion](https://www.framer.com/motion/)
-- **Validation:** [Zod](https://zod.dev/)
+- **Frontend:** Vite + React + TypeScript
+- **UI Components:** Tailwind CSS + shadcn/ui
+- **Authentication:** Clerk.com (Google login)
+- **Database & Backend:** Supabase (PostgreSQL)
+- **Data Visualization:** Recharts
+- **State Management:** React Query + Context API
+- **Forms:** React Hook Form + Zod
 
-## Prerequisites
+## Features
 
-Before you begin, ensure you have the following:
+### Core Functionality
+- **Project & Task Management:** Create, update, and organize projects and tasks
+- **Custom Fields:** Add custom fields to projects and tasks based on your workflow
+- **Project Dashboards:** View project-specific metrics and visualizations
+- **Global Dashboard:** Track activity across all your projects
 
-- Node.js 18+ installed
-- A [Supabase](https://supabase.com/) account for database
-- Generated project documents from [CodeGuide](https://codeguide.dev/) for best development experience
+### Integration Showcase
+This project was built to demonstrate how Atlas SDK can be integrated to enhance:
+
+- **Runtime Permissions:** Control data access with fine-grained entitlements
+- **Usage Limits:** Apply limits to projects, tasks, and storage
+- **Analytics Integration:** Connect in-app activities to Atlas's analytics capabilities
+- **Monetization:** Pre-built structure for premium features and upgrade paths
 
 ## Getting Started
 
 1. **Clone the repository**
-
    ```bash
-   git clone <repository-url>
-   cd codeguide-vite-supabase
+   git clone https://github.com/RunOnAtlas/atlas-vite-supabase-starterkit-project-mgmt.git
+   cd atlas-vite-supabase-starterkit-project-mgmt
    ```
 
 2. **Install dependencies**
-
    ```bash
    npm install
-   # or
-   yarn install
-   # or
-   pnpm install
    ```
 
-3. **Environment Variables Setup**
-
-   - Copy the `.env.example` file to `.env`:
-     ```bash
-     cp .env.example .env
-     ```
-   - Fill in the environment variables in `.env` (see Configuration section below)
+3. **Configure environment variables**
+   - Copy `.env.example` to `.env`
+   - Set up your Supabase and Clerk credentials
 
 4. **Start the development server**
-
    ```bash
    npm run dev
-   # or
-   yarn dev
-   # or
-   pnpm dev
    ```
 
-5. **Open [http://localhost:5173](http://localhost:5173) with your browser to see the result.**
+5. **Set up the database**
+   - The SQL scripts in `src/lib/sql/` can be executed in your Supabase SQL editor
+   - These create the tables, functions, and seed data needed
 
-## Configuration
+## Atlas SDK Integration Points
 
-### Supabase Setup
+While this starter kit doesn't currently include the Atlas SDK, it's structured to showcase where integration would make sense:
 
-1. Go to [Supabase Dashboard](https://app.supabase.com/)
-2. Create a new project
-3. Go to Project Settings > API
-4. Copy the `Project URL` as `VITE_SUPABASE_URL`
-5. Copy the `anon` public key as `VITE_SUPABASE_ANON_KEY`
+### User Permissions & Entitlements
+- `src/hooks/useProjects.ts` - Add Atlas SDK checks to limit project access
+- `src/pages/projects/columns.tsx` - Conditionally render actions based on entitlements
+- `src/components/custom-fields/CustomFieldsManager.tsx` - Gate premium features
 
-## Environment Variables
+### Usage Tracking & Analytics
+- `src/lib/supabaseClient.ts` - Track API usage and limits
+- `src/pages/dashboard.tsx` - Integrate Atlas events for activity metrics
+- `src/pages/projects/project-dashboard.tsx` - Connect project metrics to Atlas
 
-Create a `.env` file in the root directory with the following variables:
+### Monetization Points
+- `src/pages/pricing.tsx` - Connect to Atlas's subscription management
+- `src/components/premium/UpgradeButton.tsx` - Trigger Atlas-managed upgrade flows
+- `src/components/premium/PremiumBadge.tsx` - Feature gating based on subscription level
 
-```env
-# Supabase
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
+## Documentation
 
-## Features
+This project includes comprehensive documentation to help you understand the codebase and integration points:
 
-- 📦 Supabase Database Integration
-- 🎨 Modern UI with Tailwind CSS and Radix UI
-- 🚀 Fast Development with Vite
-- 🔄 Data Fetching with TanStack Query
-- 📱 Responsive Design
-- 🎭 Beautiful Animations with Framer Motion
-- 📝 Type-Safe Forms with React Hook Form and Zod
+- **Project Requirements:** `documentation/project_requirements_document.md`
+- **App Flow:** `documentation/app_flow_document.md`
+- **Backend Structure:** `documentation/backend_structure_document.md`
+- **Frontend Guidelines:** `documentation/frontend_guidelines_document.md`
 
-## Project Structure
+## Future Developments
 
-```
-codeguide-vite-supabase/
-├── src/                # Source files
-│   ├── components/    # React components
-│   ├── lib/          # Utility functions
-│   ├── hooks/        # Custom hooks
-│   └── types/        # TypeScript types
-├── public/            # Static assets
-└── documentation/     # Generated documentation from CodeGuide
-```
+In upcoming versions, we plan to:
 
-## Available Scripts
+1. Add direct Atlas SDK integration examples
+2. Showcase Atlas authentication modes
+3. Demonstrate limit enforcement using Atlas entitlements
+4. Add collaboration features with Atlas permissioning
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run lint` - Run ESLint
-- `npm run preview` - Preview production build
+## License
 
-## Documentation Setup
-
-To implement the generated documentation from CodeGuide:
-
-1. Create a `documentation` folder in the root directory:
-
-   ```bash
-   mkdir documentation
-   ```
-
-2. Place all generated markdown files from CodeGuide in this directory:
-
-   ```bash
-   # Example structure
-   documentation/
-   ├── project_requirements_document.md
-   ├── app_flow_document.md
-   ├── frontend_guideline_document.md
-   └── backend_structure_document.md
-   ```
-
-3. These documentation files will be automatically tracked by git and can be used as a reference for your project's features and implementation details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-
-TO DO
-
-- dashboard: add simple widgets and advanced widgets (we will gate them later - entitlements)
-- projects: make it much nicer (we will limit the amount of projects later - entitlements with limits)
-- add tasks linked to projects
-
-- add Colaboration (we will limit the amount of projects later - entitlements)
+[MIT](LICENSE)
