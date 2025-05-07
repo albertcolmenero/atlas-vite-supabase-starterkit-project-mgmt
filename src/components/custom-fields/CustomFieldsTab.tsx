@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tab, Tabs, TabList, TabPanel } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { CustomFieldsManager } from './CustomFieldsManager';
@@ -39,12 +39,12 @@ export function CustomFieldsTab({ projectId, isPremiumEnabled = false }: CustomF
         )}
         
         <Tabs defaultValue="project" onValueChange={handleTabChange}>
-          <TabList className="grid grid-cols-2 mb-6">
-            <Tab value="project">Project Fields</Tab>
-            <Tab value="task">Task Fields</Tab>
-          </TabList>
+          <TabsList className="grid grid-cols-2 mb-6">
+            <TabsTrigger value="project">Project Fields</TabsTrigger>
+            <TabsTrigger value="task">Task Fields</TabsTrigger>
+          </TabsList>
           
-          <TabPanel value="project">
+          <TabsContent value="project">
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-medium mb-2">Manage Project Fields</h3>
@@ -76,9 +76,9 @@ export function CustomFieldsTab({ projectId, isPremiumEnabled = false }: CustomF
                 </Card>
               </div>
             </div>
-          </TabPanel>
+          </TabsContent>
           
-          <TabPanel value="task">
+          <TabsContent value="task">
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-medium mb-2">Manage Task Fields</h3>
@@ -108,7 +108,7 @@ export function CustomFieldsTab({ projectId, isPremiumEnabled = false }: CustomF
                 </Card>
               </div>
             </div>
-          </TabPanel>
+          </TabsContent>
         </Tabs>
       </CardContent>
     </Card>

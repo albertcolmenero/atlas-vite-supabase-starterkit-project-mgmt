@@ -18,6 +18,7 @@ export default function PricingPage() {
       name: 'Free',
       description: 'For individuals or small teams just getting started',
       price: { monthly: '$0', yearly: '$0' },
+      priceValue: { monthly: 0, yearly: 0 },
       features: [
         { name: 'Unlimited public projects', included: true },
         { name: 'Up to 3 team members', included: true },
@@ -39,6 +40,7 @@ export default function PricingPage() {
       name: 'Pro',
       description: 'For teams that need to manage complex projects',
       price: { monthly: '$12', yearly: '$120' },
+      priceValue: { monthly: 12, yearly: 120 },
       features: [
         { name: 'Everything in Free', included: true },
         { name: 'Unlimited team members', included: true },
@@ -61,6 +63,7 @@ export default function PricingPage() {
       name: 'Business',
       description: 'For organizations with advanced needs',
       price: { monthly: '$29', yearly: '$290' },
+      priceValue: { monthly: 29, yearly: 290 },
       features: [
         { name: 'Everything in Pro', included: true },
         { name: 'Custom field templates', included: true },
@@ -81,8 +84,8 @@ export default function PricingPage() {
   ];
   
   const savings = {
-    pro: Math.round((12 * plans[1].price.monthly.replace('$', '') - plans[1].price.yearly.replace('$', '')) / (12 * plans[1].price.monthly.replace('$', '')) * 100),
-    business: Math.round((12 * plans[2].price.monthly.replace('$', '') - plans[2].price.yearly.replace('$', '')) / (12 * plans[2].price.monthly.replace('$', '')) * 100),
+    pro: Math.round((plans[1].priceValue.monthly * 12 - plans[1].priceValue.yearly) / (plans[1].priceValue.monthly * 12) * 100),
+    business: Math.round((plans[2].priceValue.monthly * 12 - plans[2].priceValue.yearly) / (plans[2].priceValue.monthly * 12) * 100),
   };
   
   return (
