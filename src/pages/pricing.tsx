@@ -6,12 +6,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUser } from '@clerk/clerk-react';
 import { PremiumBadge } from '@/components/premium';
 
+type PlanType = 'free' | 'pro' | 'business';
+
 export default function PricingPage() {
   const { user } = useUser();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   
   // This would come from user data
-  const currentPlan: 'free' | 'pro' | 'business' = 'free';
+  const currentPlan = 'free' as PlanType;
   
   const plans = [
     {
