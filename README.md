@@ -138,3 +138,12 @@ To implement the generated documentation from CodeGuide:
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+
+TO DO
+
+- dashboard: add simple widgets and advanced widgets (we will gate them later - entitlements)
+- projects: make it much nicer (we will limit the amount of projects later - entitlements with limits)
+- add tasks linked to projects
+
+- add Colaboration (we will limit the amount of projects later - entitlements)

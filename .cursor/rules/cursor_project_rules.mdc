@@ -1,0 +1,156 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+## Project Overview
+
+*   **Type:** Starter Kit/Boilerplate
+*   **Description:** Create a starter kit/boilerplate using Vite, Tailwind, TypeScript, Supabase, Shadcn UI, and Clerk.com for authentication, focusing on Google login.
+*   **Primary Goal:** Enable builders using AI IDEs to quickly start building products on top of a great foundation.
+
+## Project Structure
+
+### Framework-Specific Routing
+
+*   **Directory Rules:**
+
+    *   Vite + React Router 6: Manual route definitions via `src/App.tsx` and `src/pages/[route].tsx`.
+    *   Example 1: "React Router 6" → `src/App.tsx` using `createBrowserRouter` with `src/pages/index.tsx`, `src/pages/dashboard/*`.
+    *   Example 2: File-based pages → `src/pages/index.tsx`, `src/pages/sign-in.tsx`, `src/pages/dashboard/projects.tsx`, `src/pages/dashboard/profile.tsx`.
+    *   Example 3: Nested layouts → `src/layouts/MarketingLayout.tsx`, `src/layouts/PrivateLayout.tsx`.
+
+### Core Directories
+
+*   **Versioned Structure:**
+
+    *   `src/pages`: React Router page components (marketing, auth, dashboard).
+    *   `src/components`: Shared UI components (Shadcn UI wrappers, tables, forms).
+    *   `src/layouts`: Layout components (MarketingLayout, PrivateLayout with sidebar).
+    *   `src/api`: Supabase client initialization and CRUD functions.
+    *   `src/lib`: Utility scripts and seed script for `projects` table.
+    *   `src/types`: Shared TypeScript types and interfaces.
+    *   `public`: Static assets (images, icons).
+    *   Root configs: `vite.config.ts`, `tailwind.config.ts`, `tsconfig.json`, `.eslintrc.js`, `vitest.config.ts`.
+
+### Key Files
+
+*   **Stack-Versioned Patterns:**
+
+    *   `vite.config.ts`: Vite 5+ config with `@/` alias and React plugin.
+    *   `tailwind.config.ts`: Tailwind CSS v3 config with extended purple theme.
+    *   `tsconfig.json`: TypeScript 5+ strict settings.
+    *   `src/main.tsx`: Vite React entrypoint importing global CSS and rendering `<App />` within `<ClerkProvider>`.
+    *   `src/App.tsx`: Root component with React Router 6 routes and `<ClerkProvider>` wrapper.
+    *   `src/pages/index.tsx`: Marketing page using Shadcn UI primitives and Tailwind styles.
+    *   `src/pages/sign-in.tsx`: Clerk `<SignIn>` component configured for Google only.
+    *   `src/layouts/PrivateLayout.tsx`: Collapsible sidebar layout using Shadcn UI.
+    *   `src/pages/dashboard/projects.tsx`: Projects table with search, pagination, sorting, add, delete.
+    *   `src/pages/dashboard/profile.tsx`: Clerk `<UserProfile>` component.
+    *   `src/api/supabaseClient.ts`: Supabase JS v2 client initialization.
+    *   `src/lib/seed.ts`: Script to seed `projects` table.
+    *   `.eslintrc.js`: ESLint config with TypeScript and Prettier integration.
+    *   `vitest.config.ts`: Vitest setup for unit and integration tests.
+
+## Tech Stack Rules
+
+*   **Version Enforcement:**
+
+    *   vite@latest: Use ESM modules, configure `@/` alias, no CommonJS.
+    *   tailwindcss@3: Enable JIT, purge `src/**/*.{ts,tsx}`.
+    *   typescript@5: `strict: true`, no implicit `any`.
+    *   @supabase/supabase-js@2: Use `createClient` from the v2 API.
+    *   @shadcn/ui@latest: Utilize Radix primitives and Tailwind variants only.
+    *   @clerk/clerk-react@5: Configure Google OAuth only; disable other providers.
+    *   eslint@8 + prettier@2: Extend recommended and Prettier; enforce formatting rules.
+    *   vitest@latest: `globals: true`, `environment: jsdom`, coverage enabled.
+
+## PRD Compliance
+
+*   "Clerk.com for authentication, with Google as the sole social login provider.": Ensure no other OAuth routes or providers are enabled in Clerk settings.
+*   "Projects: Data table with search, pagination, sorting, add (right panel), and inline deletion.": Implement all features in `src/pages/dashboard/projects.tsx` using Supabase queries and Shadcn UI.
+
+## App Flow Integration
+
+*   Marketing Page Flow → `src/pages/index.tsx` uses Shadcn UI components and Tailwind for hero, features, and waitlist form.
+*   Auth Flow → Wrap routes in `<ClerkProvider>` in `src/main.tsx`; `src/pages/sign-in.tsx` uses `<SignIn>` for Google only.
+*   Private Layout Flow → Protect dashboard routes with Clerk's `<RequireAuth>` in `src/App.tsx`, render `PrivateLayout`.
+*   Projects Page Flow → Fetch and mutate `projects` via Supabase client in `src/api/supabaseClient.ts`.
+*   Profile Page Flow → Render Clerk's `<UserProfile>` in `src/pages/dashboard/profile.tsx`.
+
+## Best Practices
+
+*   Vite
+    *   Keep `vite.config.ts` minimal; leverage official plugins.
+    *   Use `@/` alias for all absolute imports.
+    *   Configure `optimizeDeps` for fast HMR.
+
+*   Tailwind CSS
+    *   Enable JIT mode and purge unused styles in production.
+    *   Use `@apply` sparingly inside component CSS modules.
+    *   Extend the theme with a primary purple color under `theme.extend.colors`.
+
+*   TypeScript
+    *   Enable `strict` mode and no `any` usage.
+    *   Define shared types in `src/types/` and reuse across components.
+    *   Use generics for Supabase responses to keep type safety.
+
+*   Supabase
+    *   Initialize the client once in `src/api/supabaseClient.ts`.
+    *   Use RLS policies; never bypass authorization in queries.
+    *   Seed example data via `src/lib/seed.ts` standalone script.
+
+*   Shadcn UI
+    *   Wrap Radix primitives with custom styling in `src/components/ui`.
+    *   Reuse consistent component patterns (Buttons, Tables).
+    *   Type all component props with TS interfaces.
+
+*   Clerk Auth
+    *   Wrap the entire app in `<ClerkProvider>` at the root (`src/main.tsx`).
+    *   Use `<SignIn>`, `<SignUp>` configured for Google only, and `<UserButton>`.
+    *   Protect routes with `<RequireAuth>` to enforce authentication.
+
+*   ESLint & Prettier
+    *   Extend `eslint:recommended` and `plugin:@typescript-eslint/recommended`.
+    *   Run `prettier --check` and `eslint --fix` in CI pipelines.
+    *   Use editor integrations for autofix on save.
+
+*   Vitest
+    *   Store tests alongside components under `__tests__/` or in `src/test/`.
+    *   Mock Supabase client in unit tests.
+    *   Enable coverage reporting and fail CI on coverage drop.
+
+## Rules
+
+*   Derive folder/file patterns directly from tech-stack versions.
+*   Vite + React Router 6: Use `src/pages/*` and manual route definitions; no file-based routing frameworks.
+*   Shadcn UI components must live in `src/components/ui` and follow naming conventions.
+*   Supabase client and data access only in `src/api`; no ad-hoc fetch calls elsewhere.
+*   Clerk React provider must be configured in the entrypoint; no nested providers.
+*   Never mix routing conventions (e.g., no `pages/` folder in a Next.js style for Vite).
+
+## Rules Metrics
+
+Before starting the project development, create a metrics file in the root of the project called
+
+`cursor_metrics.md`.
+
+### Instructions:
+
+*   Each time a cursor rule is used as context, update `cursor_metrics.md`.
+*   Use the following format for `cursor_metrics.md`:
+
+# Rules Metrics
+
+## Usage
+
+The number of times rules is used as context
+
+*   vite.config.mdc: 0
+*   tailwind.config.mdc: 0
+*   tsconfig.mdc: 0
+*   src\/App.tsx.mdc: 0
+*   src\/pages\/index.tsx.mdc: 0
+*   ...other rules

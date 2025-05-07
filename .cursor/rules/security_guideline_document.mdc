@@ -1,0 +1,63 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+Here’s how we can proceed. Pick one of the options below (or suggest your own), and I’ll jump right in.
+
+# 1. High-Level Implementation Plan  
+Outline deliverables, milestones, and folder structure so we have a clear roadmap.
+
+# 2. Project Bootstrapping  
+Walk through:  
+• `npm init` + Vite TS template  
+• TailwindCSS install & config  
+• ESLint + Prettier setup  
+• Vitest config  
+• Gitignore + lockfile  
+
+# 3. Environment and Secrets Management  
+• `.env.example` (Clerk, Supabase)  
+• Loader checks & fail-secure fallbacks  
+
+# 4. Authentication Integration  
+Build the Clerk wrapper:  
+• Google-only auth flow  
+• Secure session cookies (HttpOnly, Secure, SameSite)  
+• Public vs private route guards  
+
+# 5. UI Skeleton & Theming  
+• Shadcn component setup  
+• Tailwind theme override (purple primary)  
+• Marketing Page wireframe (header, hero, features, waitlist form)  
+
+# 6. Supabase Schema & Client  
+• `projects` table DDL + seed script  
+• Supabase client module (read-only least privilege key for public pages; service key behind API routes)  
+
+# 7. Private Layout & Pages  
+• Sidebar + routing (Dashboard, Projects, Profile)  
+• Dashboard “Welcome, [User]”  
+
+# 8. Projects CRUD  
+• Table with search/pagination/sort  
+• Right-slide panel for create  
+• Inline delete + optimistic UI  
+
+# 9. Profile Page  
+• Clerk’s embedded profile UI  
+
+# 10. Testing & CI/CD  
+• Vitest unit tests (components & utils)  
+• Basic E2E (waitlist form, login flow)  
+• GitHub Actions (lint, test, build)  
+
+---
+
+Which step would you like to tackle first?  
+• A. Generate the folder/file scaffold & initial configs  
+• B. Kick off authentication (Clerk + route protection)  
+• C. Wire up Tailwind + Shadcn UI theme with a dummy page  
+• D. Something else? Just let me know!

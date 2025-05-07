@@ -1,0 +1,214 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+# Backend Structure Document
+
+## 1. Backend Architecture
+
+We’re building a fully serverless backend that uses managed services to minimize ops overhead while maximizing performance and scalability. Here’s how it’s laid out:
+
+- **Supabase as the core platform**  
+  - Provides a hosted PostgreSQL database, authentication adapter (we’re using Clerk.com for auth), storage, and serverless functions (Edge Functions).
+  - Exposes a RESTful API (PostgREST) directly over your database, so most CRUD operations can be handled without writing any custom server code.
+- **Edge Functions for custom logic**  
+  - Written in TypeScript and deployed on Supabase’s Deno-based runtime.  
+  - Used for business rules that don’t map cleanly to simple database queries (for example, newsletter signup workflows, analytics events, or orchestrating multiple database actions in a single request).
+- **Clerk.com for authentication**  
+  - Handles user sign-in, session management, and secure token issuance.  
+  - Frontend exchanges the Clerk JWT with Supabase for row-level security.
+
+How this supports our key goals:
+- **Scalability**: Supabase scales transparently as your database grows. Edge Functions auto-scale to meet traffic.  
+- **Maintainability**: Minimal custom server code means fewer moving parts to keep up to date.  
+- **Performance**: Direct PostgREST queries eliminate unnecessary middleware; Edge Functions run at the edge for low latency.
+
+## 2. Database Management
+
+We’re using Supabase’s managed PostgreSQL service with these best practices:
+
+- **Type**: Relational (SQL)
+- **Specific system**: PostgreSQL 14 (hosted by Supabase)
+- **Access patterns**:
+  - Read/write via the Supabase client library in the frontend for simple operations.  
+  - Protected or multi-step operations handled by Edge Functions.
+- **Data migration & versioning**:
+  - SQL migration files managed in a `/migrations` folder.  
+  - Deployed through Supabase CLI or CI/CD pipeline.
+- **Backups**:
+  - Automated daily backups retained per Supabase’s SLA.  
+  - On-demand snapshots available via the dashboard.
+- **Row-Level Security (RLS)**:
+  - Policies enforce that users can only read/write their own `projects` records.  
+  - Public tables (e.g., `waitlist`) have insert-only policies for lead capture.
+
+## 3. Database Schema
+
+Below is a human-readable overview of our core tables, followed by the exact SQL definitions.
+
+### Human-Readable Schema
+
+1. **users** (managed by Clerk)
+   - id: unique identifier (UUID)
+   - email, name, profile info (handled by Clerk)
+
+2. **projects**
+   - id: UUID
+   - user_id: UUID (references users.id)
+   - name: text
+   - description: text
+   - status: enum (e.g., ‘active’, ‘archived’)
+   - created_at, updated_at: timestamps
+
+3. **waitlist**
+   - id: serial
+   - email: text
+   - created_at: timestamp default now()
+
+4. **newsletter_subscriptions**
+   - id: serial
+   - email: text
+   - subscribed_at: timestamp default now()
+
+### SQL Schema (PostgreSQL)
+
+```sql
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- projects table
+CREATE TABLE public.projects (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+
+-- waitlist table
+CREATE TABLE public.waitlist (
+  id SERIAL PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- newsletter subscriptions table
+CREATE TABLE public.newsletter_subscriptions (
+  id SERIAL PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  subscribed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Row-Level Security
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their projects" ON public.projects
+  FOR ALL USING (auth.uid() = user_id);
+
+ALTER TABLE public.waitlist ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anyone to sign up" ON public.waitlist
+  FOR INSERT USING (true);
+
+ALTER TABLE public.newsletter_subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anyone to subscribe" ON public.newsletter_subscriptions
+  FOR INSERT USING (true);
+``` 
+
+## 4. API Design and Endpoints
+
+We lean on Supabase’s auto-generated REST API for most CRUD actions and supplement it with custom Edge Function endpoints.
+
+### Supabase REST Endpoints (via PostgREST)
+- `GET /projects` & `POST /projects`  
+  - Fetch or create projects for the signed-in user.
+- `PATCH /projects?id=eq.{project_id}` & `DELETE /projects?id=eq.{project_id}`  
+  - Update or delete a user’s project.
+
+### Edge Functions (custom)
+- `POST /functions/v1/join-waitlist`  
+  - Payload: `{ email }`  
+  - Inserts into `waitlist` table, returns success or error if already signed up.
+- `POST /functions/v1/subscribe-newsletter`  
+  - Payload: `{ email }`  
+  - Inserts into `newsletter_subscriptions`, triggers third-party email service if needed.
+- `POST /functions/v1/track-event`  
+  - Payload: `{ user_id, eventName, metadata }`  
+  - Logs analytic events to a dedicated table or external service.
+
+All endpoints require a valid Supabase service role key or a user JWT.
+
+## 5. Hosting Solutions
+
+- **Supabase**  
+  - Fully managed PostgreSQL database and Edge Functions.  
+  - Zero-ops scaling, automatic failover, and multi-region support.
+- **Front-end (context)**  
+  - While not strictly part of the backend, the Vite/Tailwind app is ideal for Vercel or Netlify hosting with global CDN distribution.
+
+Why this setup?
+- **Reliability**: Supabase SLAs cover 99.99% uptime.  
+- **Cost-Effectiveness**: Pay-as-you-go for database storage, compute, and bandwidth.  
+- **Global Performance**: Edge Functions and CDN deliver low latency worldwide.
+
+## 6. Infrastructure Components
+
+1. **Load Balancing & Networking**
+   - Handled by Supabase and the underlying cloud provider.  
+   - Built-in connection pooling for Postgres.
+2. **Caching**
+   - Supabase uses in-memory caching at the database level.  
+   - Edge Functions can set HTTP caching headers for static responses.
+3. **CDN**
+   - Static assets (if served from Supabase Storage or front-end host) are cached at the edge.  
+   - Reduces load on origin and improves user experience.
+4. **Analytics & Logging**
+   - Supabase dashboard provides query insights and logs.  
+   - Edge Function logs available in the Supabase console.
+
+## 7. Security Measures
+
+- **Authentication & Authorization**
+  - Clerk.com issues JWTs for user sessions.  
+  - Supabase uses those JWTs to enforce Row-Level Security (RLS).  
+- **Encryption**
+  - TLS for all in-transit data.  
+  - AES-256 encryption at rest for the database.
+- **Input Validation & Sanitization**
+  - Edge Functions validate request bodies against JSON schemas.  
+  - Database constraints (e.g., UNIQUE, NOT NULL) prevent invalid data.
+- **Rate Limiting & Abuse Protection**
+  - Supabase’s Edge Functions can integrate with Cloudflare rate-limit rules.  
+  - Custom logic in Functions to throttle abusive clients.
+- **Secrets Management**
+  - API keys and service role secrets stored in Supabase environment variables.  
+  - No hard-coded credentials in source code.
+
+## 8. Monitoring and Maintenance
+
+- **Real-time Monitoring**
+  - Supabase dashboard for database health metrics (CPU, connections, slow queries).  
+  - Edge Function invocation metrics (latency, errors).
+- **Error Tracking**
+  - Integrate Sentry or Logflare for uncaught exceptions in Edge Functions.
+- **Alerts**
+  - Configure email or Slack alerts for high error rates or resource exhaustion.
+- **Maintenance**
+  - Periodic review of database indexes and query plans.  
+  - Automated migration testing in CI pipeline before applying to production.  
+  - Regular dependency updates for Edge Function runtimes.
+
+## 9. Conclusion and Overall Backend Summary
+
+This serverless backend built on Supabase and Clerk.com delivers a secure, scalable foundation for your starter kit. Key takeaways:
+
+- **Minimal Ops**: No dedicated servers to manage—just migrations, environment variables, and your Edge Function code.  
+- **Direct Data Access**: Leverage PostgREST for fast CRUD endpoints, backed by strict RLS policies.  
+- **Custom Workflows**: Edge Functions give you the flexibility to implement specialized features like waitlist signups or analytics tracking.  
+- **Rock-Solid Security**: Industry-standard encryption, JWT-based auth, and fine-grained RLS policies.
+
+By combining these managed services, you’ll deliver a smooth developer experience for anyone who picks up your starter kit, letting them focus on building features instead of wrestling with infrastructure.

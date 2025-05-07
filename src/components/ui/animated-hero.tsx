@@ -5,7 +5,10 @@ import { Button } from '@/components/ui/button'
 
 function Hero() {
   const [titleNumber, setTitleNumber] = useState(0)
-  const titles = useMemo(() => ['Modern', 'Full-stack', 'Secure', 'Scalable', 'Powerful'], [])
+  const titles = useMemo(
+    () => ['Modern', 'Full-stack', 'Secure', 'Scalable', 'Powerful'],
+    [],
+  )
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -29,7 +32,12 @@ function Hero() {
               rel="noopener noreferrer"
               className="flex flex-row items-center gap-2"
             >
-              <img src="/codeguide-logo.png" alt="CodeGuide" width={42} height={42} />
+              <img
+                src="/codeguide-logo.png"
+                alt="CodeGuide"
+                width={42}
+                height={42}
+              />
               <span className="logo-text text-3xl font-bold">CodeGuide</span>
             </a>
           </div>
@@ -63,7 +71,8 @@ function Hero() {
             </h1>
 
             <p className="max-w-2xl text-center text-lg leading-relaxed tracking-tight text-muted-foreground md:mt-8 md:text-xl">
-              Start building with a modern web application template featuring Vite, React, Tailwind CSS, and Supabase.
+              Start building with a modern web application template featuring
+              Vite, React, Tailwind CSS, and Supabase.
             </p>
           </div>
           <div className="flex flex-row gap-3">

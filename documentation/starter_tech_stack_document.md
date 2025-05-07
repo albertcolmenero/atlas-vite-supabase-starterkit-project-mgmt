@@ -3,6 +3,7 @@
 This starter kit uses the following tech stack:
 
 1. **Core Framework and Runtime:**
+
    - **Vite**: The build tool and development server for the application
      - Core Vite configuration in `vite.config.ts`
    - **React 18**: The underlying UI library for building components
@@ -12,33 +13,38 @@ This starter kit uses the following tech stack:
      - Configuration in `tsconfig.json`
 
 2. **Database and Backend:**
+
    - **Supabase**: Used as the main database and backend service
      - Client implementation using `@supabase/supabase-js`
 
 3. **Data Fetching and State Management:**
+
    - **TanStack React Query**: For efficient server state management and data fetching
+
      - Example query hook structure in `src/hooks/`:
+
        ```typescript
-       import { useQuery } from '@tanstack/react-query';
-       import { supabase } from '@/lib/supabase';
-       
+       import { useQuery } from '@tanstack/react-query'
+       import { supabase } from '@/lib/supabase'
+
        export function useProducts() {
          return useQuery({
            queryKey: ['products'],
            queryFn: async () => {
-               const { data, error } = await supabase.from('products').select('*');
-               
-               if (error) {
-                throw error;
-               }
+             const { data, error } = await supabase.from('products').select('*')
 
-               return data;
+             if (error) {
+               throw error
+             }
+
+             return data
            },
-         });
+         })
        }
        ```
 
 4. **UI Components and Styling:**
+
    - **Radix UI**: Extensive use of accessible components including:
      - Dialog, Popover, Tooltip
      - Navigation menus
@@ -56,16 +62,19 @@ This starter kit uses the following tech stack:
    - **clsx** and **tailwind-merge**: For conditional class name handling
 
 5. **Form Handling and Validation:**
+
    - **React Hook Form**: For form management
    - **Zod**: For schema validation
    - **@hookform/resolvers**: For integrating Zod with React Hook Form
 
 6. **Date Handling and Charts:**
+
    - **date-fns**: For date manipulation
    - **React Day Picker**: For date picking components
    - **Recharts**: For data visualization and charts
 
 7. **Development Tools:**
+
    - **ESLint**: For code linting
      - Configuration: `.eslintrc.json`
    - **Prettier**: For code formatting with Tailwind plugin
@@ -80,6 +89,7 @@ This starter kit uses the following tech stack:
    - **cmdk**: For command palette functionality
 
 The project is set up as a modern web application with:
+
 - Type-safe development
 - Modern UI components
 - Responsive design
