@@ -31,18 +31,27 @@ export default function ProjectsPage() {
   const customFieldColumns = useCustomFieldColumns('project')
   
   useEffect(() => {
-    fetchProjects()
+    if (user) {
+      fetchProjects()
+    }
     // eslint-disable-next-line
-  }, [])
+  }, [user])
 
   async function fetchProjects() {
     setLoading(true)
     
     try {
-      // Fetch projects
+      if (!user) {
+        setProjects([])
+        setLoading(false)
+        return
+      }
+      
+      // Fetch projects only for the current user
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
         .select('*')
+        .eq('user_id', user.id)
       
       if (projectsError) throw projectsError
       
@@ -52,12 +61,39 @@ export default function ProjectsPage() {
         return
       }
       
-      // Fetch all custom field definitions
-      const { data: fieldDefinitions, error: fieldDefError } = await supabase
+      // Get project IDs for filtering field values
+      const projectIds = projectsData.map(p => p.id)
+      if (projectIds.length === 0) {
+        setProjects([])
+        setLoading(false)
+        return
+      }
+      
+      // Fetch only global field definitions for project entity type
+      const { data: columnExists, error: columnCheckError } = await supabase
+        .from('custom_field_definitions')
+        .select('created_by_user_id')
+        .limit(1);
+          
+      const hasCreatorColumn = !columnCheckError && 
+        columnExists && 
+        columnExists.length > 0 && 
+        'created_by_user_id' in columnExists[0];
+      
+      // Build the query based on whether the column exists
+      let query = supabase
         .from('custom_field_definitions')
         .select('*')
         .eq('entity_type', 'project')
-        .eq('project_id', 'global')
+        .eq('project_id', 'global');
+        
+      // Only filter by creator if the column exists
+      if (hasCreatorColumn) {
+        // Get fields created by this user or default admin
+        query = query.or('created_by_user_id.eq.' + user.id + ',created_by_user_id.eq.default_admin,created_by_user_id.is.null');
+      }
+      
+      const { data: fieldDefinitions, error: fieldDefError } = await query;
       
       if (fieldDefError) {
         console.error('Error fetching field definitions:', fieldDefError)
@@ -66,11 +102,9 @@ export default function ProjectsPage() {
         return
       }
       
-      // If we have custom fields defined, fetch their values for all projects
+      // If we have custom fields defined, fetch their values for the user's projects only
       if (fieldDefinitions && fieldDefinitions.length > 0) {
-        const projectIds = projectsData.map(p => p.id)
-        
-        // Fetch all field values for these projects
+        // Fetch only field values for the user's projects
         const { data: fieldValues, error: fieldValuesError } = await supabase
           .from('custom_field_values')
           .select('*')

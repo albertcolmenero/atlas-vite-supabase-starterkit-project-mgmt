@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CustomFieldsManager } from '@/components/custom-fields/CustomFieldsManager';
 import { CustomFieldsRenderer } from '@/components/custom-fields/CustomFieldsRenderer';
 import { useUser } from '@clerk/clerk-react';
 import { useProjects } from '@/hooks/useProjects';
+import { supabase } from '@/lib/supabaseClient';
 // import { Sparkles } from 'lucide-react';
 // import { PremiumBadge, UpgradeButton } from '@/components/premium';
 
@@ -12,12 +13,59 @@ export default function CustomFieldsPage() {
   const { user } = useUser();
   const { projects, isLoading } = useProjects();
   const [activeTab, setActiveTab] = useState('project');
+  const [hasCustomFields, setHasCustomFields] = useState(false);
 
   // For premium features - this would come from a subscription check
   const isPremiumEnabled = true; // Changed to true since we're removing the premium block
   
   // Use a dummy global ID for all fields
   const globalProjectId = 'global';
+  
+  // Check if user has any custom fields at all
+  useEffect(() => {
+    if (!user) return;
+    
+    async function checkForCustomFields() {
+      try {
+        // Check if the created_by_user_id column exists
+        const { data: columnExists, error: columnCheckError } = await supabase
+          .from('custom_field_definitions')
+          .select('created_by_user_id')
+          .limit(1);
+          
+        const hasCreatorColumn = !columnCheckError && 
+          columnExists && 
+          columnExists.length > 0 && 
+          'created_by_user_id' in columnExists[0];
+        
+        // Build the query based on whether the column exists
+        let query = supabase
+          .from('custom_field_definitions')
+          .select('id')
+          .eq('project_id', globalProjectId);
+          
+        // Only filter by creator if the column exists and user is logged in
+        if (hasCreatorColumn && user && user.id) {
+          // Get fields created by this user or default admin
+          query = query.or('created_by_user_id.eq.' + user.id + ',created_by_user_id.eq.default_admin,created_by_user_id.is.null');
+        }
+        
+        query = query.limit(1);
+        
+        const { data, error } = await query;
+          
+        if (!error && data && data.length > 0) {
+          setHasCustomFields(true);
+        } else {
+          setHasCustomFields(false);
+        }
+      } catch (err) {
+        console.error('Error checking for custom fields:', err);
+      }
+    }
+    
+    checkForCustomFields();
+  }, [user]);
   
   if (isLoading) {
     return (

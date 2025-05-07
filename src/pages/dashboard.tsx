@@ -43,22 +43,25 @@ export default function DashboardPage() {
   }, [user, timeRange])
 
   async function fetchProjects() {
-    setLoadingProjects(true)
+    if (!user) return;
+    
+    setLoadingProjects(true);
     const { data, error } = await supabase
       .from('projects')
       .select('*')
-      .eq('user_id', user?.id)
-    if (!error && data) setProjects(data)
-    setLoadingProjects(false)
+      .eq('user_id', user.id);
+      
+    if (!error && data) setProjects(data);
+    setLoadingProjects(false);
   }
 
   async function fetchAllTasks() {
     if (!user) return;
     
-    // First get all projects for this user
+    // Get user's projects directly instead of using project_members table
     const { data: userProjects, error: projectsError } = await supabase
-      .from('project_members')
-      .select('project_id')
+      .from('projects')
+      .select('id')
       .eq('user_id', user.id);
     
     if (projectsError) {
@@ -73,7 +76,7 @@ export default function DashboardPage() {
     }
     
     // Extract project IDs
-    const projectIds = userProjects.map(p => p.project_id);
+    const projectIds = userProjects.map(p => p.id);
     
     // Fetch tasks for these projects
     const { data, error } = await supabase
@@ -105,10 +108,10 @@ export default function DashboardPage() {
     
     setLoadingTaskActivity(true);
 
-    // First get all projects for this user
+    // Get user's projects directly instead of using project_members table
     const { data: userProjects, error: projectsError } = await supabase
-      .from('project_members')
-      .select('project_id')
+      .from('projects')
+      .select('id')
       .eq('user_id', user.id);
     
     if (projectsError) {
@@ -125,7 +128,7 @@ export default function DashboardPage() {
     }
     
     // Extract project IDs
-    const projectIds = userProjects.map(p => p.project_id);
+    const projectIds = userProjects.map(p => p.id);
 
     const { data: historyData, error: historyError } = await supabase
       .from('task_status_history')

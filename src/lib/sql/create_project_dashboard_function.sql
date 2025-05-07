@@ -1,88 +1,79 @@
--- Function to calculate project-specific metrics
-CREATE OR REPLACE FUNCTION public.get_project_metrics(project_id_param UUID)
-RETURNS TABLE(
+-- Function to get metrics for a specific project
+CREATE OR REPLACE FUNCTION get_project_metrics(project_id_param UUID)
+RETURNS TABLE (
   total_tasks BIGINT,
   completed_tasks BIGINT,
   open_tasks BIGINT,
-  avg_cycle_time NUMERIC,
-  avg_lead_time NUMERIC
+  avg_cycle_time FLOAT,
+  avg_lead_time FLOAT
 ) AS $$
-DECLARE
-  task_count BIGINT;
-  completed_count BIGINT;
-  cycle_time_avg NUMERIC;
-  lead_time_avg NUMERIC;
 BEGIN
-  -- Count total tasks
-  SELECT COUNT(*) INTO task_count
-  FROM public.tasks
-  WHERE project_id = project_id_param;
-
-  -- Count completed tasks
-  SELECT COUNT(*) INTO completed_count
-  FROM public.tasks
-  WHERE project_id = project_id_param AND status = 'done';
-
-  -- Calculate average cycle time (working to done)
-  SELECT AVG(
-    EXTRACT(EPOCH FROM (done_status.changed_at - working_status.changed_at)) / 86400 -- Convert seconds to days
-  ) INTO cycle_time_avg
-  FROM public.tasks t
-  -- Join to get first 'working' status for each task
-  JOIN LATERAL (
-    SELECT changed_at
-    FROM public.task_status_history
-    WHERE task_id = t.id AND status = 'working'
-    ORDER BY changed_at ASC
-    LIMIT 1
-  ) working_status ON true
-  -- Join to get last 'done' status for each task
-  JOIN LATERAL (
-    SELECT changed_at
-    FROM public.task_status_history
-    WHERE task_id = t.id AND status = 'done'
-    ORDER BY changed_at DESC
-    LIMIT 1
-  ) done_status ON true
-  WHERE t.project_id = project_id_param
-  AND t.status = 'done';
-
-  -- Calculate average lead time (created to done)
-  SELECT AVG(
-    EXTRACT(EPOCH FROM (done_status.changed_at - t.created_at)) / 86400 -- Convert seconds to days
-  ) INTO lead_time_avg
-  FROM public.tasks t
-  -- Join to get last 'done' status for each task
-  JOIN LATERAL (
-    SELECT changed_at
-    FROM public.task_status_history
-    WHERE task_id = t.id AND status = 'done'
-    ORDER BY changed_at DESC
-    LIMIT 1
-  ) done_status ON true
-  WHERE t.project_id = project_id_param
-  AND t.status = 'done';
-
-  -- Return the results
-  RETURN QUERY SELECT 
-    task_count AS total_tasks,
-    completed_count AS completed_tasks,
-    (task_count - completed_count) AS open_tasks,
-    COALESCE(cycle_time_avg, 0) AS avg_cycle_time,
-    COALESCE(lead_time_avg, 0) AS avg_lead_time;
+  RETURN QUERY
+  WITH task_counts AS (
+    SELECT
+      COUNT(*) AS total,
+      COUNT(*) FILTER (WHERE status = 'done') AS completed,
+      COUNT(*) FILTER (WHERE status != 'done') AS open
+    FROM tasks
+    WHERE project_id = project_id_param
+  ),
+  cycle_times AS (
+    SELECT
+      AVG(
+        EXTRACT(EPOCH FROM 
+          (SELECT MAX(created_at) 
+           FROM task_status_history 
+           WHERE task_id = t.id AND status = 'done')
+          - 
+          (SELECT MIN(created_at) 
+           FROM task_status_history 
+           WHERE task_id = t.id AND status = 'in-progress')
+        ) / 86400.0
+      ) AS avg_cycle
+    FROM tasks t
+    WHERE 
+      project_id = project_id_param AND
+      EXISTS (SELECT 1 FROM task_status_history WHERE task_id = t.id AND status = 'done') AND
+      EXISTS (SELECT 1 FROM task_status_history WHERE task_id = t.id AND status = 'in-progress')
+  ),
+  lead_times AS (
+    SELECT
+      AVG(
+        EXTRACT(EPOCH FROM 
+          (SELECT MAX(created_at) 
+           FROM task_status_history 
+           WHERE task_id = t.id AND status = 'done')
+          - 
+          t.created_at
+        ) / 86400.0
+      ) AS avg_lead
+    FROM tasks t
+    WHERE 
+      project_id = project_id_param AND
+      EXISTS (SELECT 1 FROM task_status_history WHERE task_id = t.id AND status = 'done')
+  )
+  SELECT
+    tc.total,
+    tc.completed,
+    tc.open,
+    COALESCE(ct.avg_cycle, 0),
+    COALESCE(lt.avg_lead, 0)
+  FROM task_counts tc
+  CROSS JOIN cycle_times ct
+  CROSS JOIN lead_times lt;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
--- Function to get daily burn-down data (open tasks per day) for a specific project
-CREATE OR REPLACE FUNCTION public.get_project_burndown(
+-- Function to get burndown data for a project
+CREATE OR REPLACE FUNCTION get_project_burndown(
   project_id_param UUID,
-  days_param INTEGER DEFAULT 30
+  days_param INT DEFAULT 30
 )
-RETURNS TABLE(
-  report_date DATE,
-  open_tasks_count BIGINT,
-  created_tasks_count BIGINT,
-  closed_tasks_count BIGINT
+RETURNS TABLE (
+  date DATE,
+  open_tasks BIGINT,
+  created_tasks BIGINT,
+  closed_tasks BIGINT
 ) AS $$
 BEGIN
   RETURN QUERY
@@ -91,124 +82,88 @@ BEGIN
       current_date - (days_param || ' days')::interval,
       current_date,
       '1 day'::interval
-    )::DATE AS d
+    )::date AS date
   ),
-  -- For each day, find tasks that were open
-  daily_open_tasks AS (
+  daily_task_stats AS (
     SELECT
-      ds.d AS report_date,
-      COUNT(DISTINCT t.id) FILTER (
-        WHERE t.created_at <= (ds.d + '1 day'::interval - '1 second'::interval)
+      d.date,
+      COUNT(t.id) FILTER (
+        WHERE t.created_at::date <= d.date 
         AND (
-          -- Either no status history on or before this day
           NOT EXISTS (
-            SELECT 1 FROM public.task_status_history th
-            WHERE th.task_id = t.id
-            AND th.changed_at <= (ds.d + '1 day'::interval - '1 second'::interval)
-          )
-          -- Or the latest status on or before this day wasn't 'done'
-          OR EXISTS (
-            SELECT 1 FROM public.task_status_history th
-            WHERE th.task_id = t.id
-            AND th.changed_at <= (ds.d + '1 day'::interval - '1 second'::interval)
-            AND th.status <> 'done'
-            AND th.changed_at = (
-              SELECT MAX(th2.changed_at)
-              FROM public.task_status_history th2
-              WHERE th2.task_id = th.task_id
-              AND th2.changed_at <= (ds.d + '1 day'::interval - '1 second'::interval)
-            )
+            SELECT 1 FROM task_status_history 
+            WHERE task_id = t.id AND status = 'done' AND created_at::date <= d.date
           )
         )
-      ) AS open_count
-    FROM date_series ds
-    CROSS JOIN public.tasks t
-    WHERE t.project_id = project_id_param
-    GROUP BY ds.d
-  ),
-  -- For each day, count tasks created (first to do status)
-  daily_created_tasks AS (
-    SELECT
-      ds.d AS report_date,
-      COUNT(DISTINCT t.id) FILTER (
-        WHERE date_trunc('day', t.created_at)::date = ds.d
-      ) AS created_count
-    FROM date_series ds
-    CROSS JOIN public.tasks t
-    WHERE t.project_id = project_id_param
-    GROUP BY ds.d
-  ),
-  -- For each day, count tasks closed (first done status)
-  daily_closed_tasks AS (
-    SELECT
-      ds.d AS report_date,
-      COUNT(DISTINCT th.task_id) FILTER (
-        WHERE th.status = 'done'
-        AND date_trunc('day', th.changed_at)::date = ds.d
-        AND NOT EXISTS (
-          SELECT 1 FROM public.task_status_history th2
-          WHERE th2.task_id = th.task_id
-          AND th2.status = 'done'
-          AND th2.changed_at < th.changed_at
-        )
-      ) AS closed_count
-    FROM date_series ds
-    CROSS JOIN public.task_status_history th
-    JOIN public.tasks t ON th.task_id = t.id
-    WHERE t.project_id = project_id_param
-    GROUP BY ds.d
+      ) AS open_tasks,
+      COUNT(t.id) FILTER (WHERE t.created_at::date = d.date) AS created_tasks,
+      COUNT(DISTINCT tsh.task_id) FILTER (
+        WHERE tsh.status = 'done' AND tsh.created_at::date = d.date
+      ) AS closed_tasks
+    FROM date_series d
+    LEFT JOIN tasks t ON t.project_id = project_id_param
+    LEFT JOIN task_status_history tsh ON tsh.task_id = t.id AND tsh.project_id = project_id_param
+    GROUP BY d.date
   )
-  -- Combine all the daily metrics
   SELECT
-    ds.d AS report_date,
-    COALESCE(dot.open_count, 0) AS open_tasks_count,
-    COALESCE(dct.created_count, 0) AS created_tasks_count,
-    COALESCE(dclt.closed_count, 0) AS closed_tasks_count
+    ds.date,
+    COALESCE(s.open_tasks, 0) AS open_tasks,
+    COALESCE(s.created_tasks, 0) AS created_tasks,
+    COALESCE(s.closed_tasks, 0) AS closed_tasks
   FROM date_series ds
-  LEFT JOIN daily_open_tasks dot ON ds.d = dot.report_date
-  LEFT JOIN daily_created_tasks dct ON ds.d = dct.report_date
-  LEFT JOIN daily_closed_tasks dclt ON ds.d = dclt.report_date
-  ORDER BY ds.d;
+  LEFT JOIN daily_task_stats s ON ds.date = s.date
+  ORDER BY ds.date;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 -- Function to get cycle time distribution for a project
-CREATE OR REPLACE FUNCTION public.get_project_cycle_time_distribution(project_id_param UUID)
-RETURNS TABLE(
-  cycle_time_days INTEGER,
-  task_count BIGINT
+CREATE OR REPLACE FUNCTION get_project_cycle_time_distribution(
+  project_id_param UUID
+)
+RETURNS TABLE (
+  category TEXT,
+  count BIGINT
 ) AS $$
 BEGIN
   RETURN QUERY
   WITH cycle_times AS (
     SELECT
-      t.id AS task_id,
-      EXTRACT(EPOCH FROM (done_status.changed_at - working_status.changed_at)) / 86400 AS cycle_time_days
-    FROM public.tasks t
-    -- Join to get first 'working' status for each task
-    JOIN LATERAL (
-      SELECT changed_at
-      FROM public.task_status_history
-      WHERE task_id = t.id AND status = 'working'
-      ORDER BY changed_at ASC
-      LIMIT 1
-    ) working_status ON true
-    -- Join to get last 'done' status for each task
-    JOIN LATERAL (
-      SELECT changed_at
-      FROM public.task_status_history
-      WHERE task_id = t.id AND status = 'done'
-      ORDER BY changed_at DESC
-      LIMIT 1
-    ) done_status ON true
-    WHERE t.project_id = project_id_param
-    AND t.status = 'done'
+      EXTRACT(EPOCH FROM 
+        (SELECT MAX(created_at) 
+         FROM task_status_history 
+         WHERE task_id = t.id AND status = 'done')
+        - 
+        (SELECT MIN(created_at) 
+         FROM task_status_history 
+         WHERE task_id = t.id AND status = 'in-progress')
+      ) / 86400.0 AS days
+    FROM tasks t
+    WHERE 
+      project_id = project_id_param AND
+      EXISTS (SELECT 1 FROM task_status_history WHERE task_id = t.id AND status = 'done') AND
+      EXISTS (SELECT 1 FROM task_status_history WHERE task_id = t.id AND status = 'in-progress')
   )
   SELECT
-    FLOOR(cycle_time_days)::INTEGER AS cycle_time_days,
-    COUNT(*) AS task_count
-  FROM cycle_times
-  GROUP BY FLOOR(cycle_time_days)::INTEGER
-  ORDER BY cycle_time_days;
+    category,
+    COUNT(*)
+  FROM (
+    SELECT
+      CASE
+        WHEN days < 1 THEN '< 1 day'
+        WHEN days >= 1 AND days < 3 THEN '1-3 days'
+        WHEN days >= 3 AND days < 7 THEN '3-7 days'
+        WHEN days >= 7 AND days < 14 THEN '1-2 weeks'
+        ELSE '> 2 weeks'
+      END AS category
+    FROM cycle_times
+  ) categorized
+  GROUP BY category
+  ORDER BY CASE
+    WHEN category = '< 1 day' THEN 1
+    WHEN category = '1-3 days' THEN 2
+    WHEN category = '3-7 days' THEN 3
+    WHEN category = '1-2 weeks' THEN 4
+    ELSE 5
+  END;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER; 
+$$ LANGUAGE plpgsql; 

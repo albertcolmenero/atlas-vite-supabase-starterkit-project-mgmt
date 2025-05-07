@@ -8,7 +8,7 @@ import TasksPage from './pages/tasks'
 import CustomFieldsPage from './pages/custom-fields'
 import PricingPage from './pages/pricing'
 import SettingsPage from './pages/settings'
-import ProjectDashboardPage from './pages/projects/project-dashboard'
+import { ProjectDashboardPage } from '@/pages/ProjectDashboardPage'
 import { BrowserRouter, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom'
 import { useUser, UserButton, useClerk, SignedIn, SignedOut } from '@clerk/clerk-react'
 import { NavigationMenu, NavigationMenuList, NavigationMenuItem, NavigationMenuLink } from '@/components/ui/navigation-menu'
@@ -21,28 +21,9 @@ function NavBar() {
     <header className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur border-b border-primary/10 shadow-sm">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
         <Link to="/" className="flex items-center gap-2 font-bold text-2xl text-primary">
-          <img src="/codeguide-backdrop.svg" alt="Logo" className="h-9 w-9 rounded-lg border border-primary/20 bg-primary/10 shadow" />
-          CodeGuide
+          Atlas Starter Kit
         </Link>
-        <NavigationMenu className="hidden md:flex">
-          <NavigationMenuList>
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <a href="#" className="px-4 py-2 rounded-md text-base font-medium text-primary hover:bg-primary/10 transition">Home</a>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <a href="#features" className="px-4 py-2 rounded-md text-base font-medium text-primary hover:bg-primary/10 transition">Features</a>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <a href="#pricing" className="px-4 py-2 rounded-md text-base font-medium text-primary hover:bg-primary/10 transition">Pricing</a>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-          </NavigationMenuList>
-        </NavigationMenu>
+        
         <div className="flex items-center gap-2">
           {user ? (
             <>

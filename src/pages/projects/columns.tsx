@@ -1,9 +1,10 @@
 import { ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
-import { ArrowUpDown, BarChart } from 'lucide-react'
+import { ArrowUpDown, BarChart, Edit, Trash } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useUser } from '@clerk/clerk-react'
 
 export type Project = {
   id: string
@@ -28,17 +29,41 @@ export interface CustomFieldDefinition {
 
 export function useCustomFieldColumns(entityType: 'project' | 'task'): ColumnDef<any, any>[] {
   const [customFieldColumns, setCustomFieldColumns] = useState<ColumnDef<any, any>[]>([])
+  const { user } = useUser()
   
   useEffect(() => {
     async function fetchCustomFields() {
+      if (!user) return
+      
       try {
-        // Fetch custom field definitions
-        const { data: fields, error } = await supabase
+        // Check if the created_by_user_id column exists
+        const { data: columnExists, error: columnCheckError } = await supabase
+          .from('custom_field_definitions')
+          .select('created_by_user_id')
+          .limit(1);
+          
+        const hasCreatorColumn = !columnCheckError && 
+          columnExists && 
+          columnExists.length > 0 && 
+          'created_by_user_id' in columnExists[0];
+          
+        // Build the query based on whether the column exists
+        let query = supabase
           .from('custom_field_definitions')
           .select('*')
           .eq('entity_type', entityType)
-          .eq('project_id', 'global')
-          .order('position');
+          .eq('project_id', 'global');
+          
+        // Only filter by creator if the column exists
+        if (hasCreatorColumn) {
+          // Get fields created by this user or default admin
+          query = query.or('created_by_user_id.eq.' + user.id + ',created_by_user_id.eq.default_admin,created_by_user_id.is.null');
+        }
+        
+        // Order by position
+        query = query.order('position');
+        
+        const { data: fields, error } = await query;
           
         if (error) {
           console.error('Error fetching custom fields:', error);
@@ -50,7 +75,9 @@ export function useCustomFieldColumns(entityType: 'project' | 'task'): ColumnDef
           return {
             id: field.field_name,
             accessorKey: `custom_${field.id}`,
-            header: field.field_name,
+            header: ({ column }) => {
+              return <div>{field.field_name}</div>
+            },
             cell: ({ row }) => {
               const value = row.original[`custom_${field.id}`];
               if (value === undefined || value === null) return '—';
@@ -81,7 +108,7 @@ export function useCustomFieldColumns(entityType: 'project' | 'task'): ColumnDef
     }
     
     fetchCustomFields();
-  }, [entityType]);
+  }, [entityType, user]);
   
   return customFieldColumns;
 }

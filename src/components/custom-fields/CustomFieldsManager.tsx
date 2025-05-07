@@ -21,6 +21,7 @@ import { CustomFieldEditor } from './CustomFieldEditor';
 import { supabase } from '@/lib/supabaseClient';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { PremiumBadge, UpgradeButton } from '@/components/premium';
+import { useUser } from '@clerk/clerk-react';
 
 // Types for our custom fields
 export type FieldType = 'text' | 'number' | 'date' | 'select' | 'multi_select' | 'boolean' | 'user_id';
@@ -37,6 +38,7 @@ export interface CustomFieldDefinition {
   };
   is_required: boolean;
   position: number;
+  created_by_user_id: string;
 }
 
 interface CustomFieldsManagerProps {
@@ -50,6 +52,7 @@ export function CustomFieldsManager({
   entityType = 'task',
   isPremiumEnabled = false
 }: CustomFieldsManagerProps) {
+  const { user } = useUser();
   const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState<string | null>(null);
@@ -64,13 +67,42 @@ export function CustomFieldsManager({
   useEffect(() => {
     async function loadCustomFields() {
       try {
+        if (!user) {
+          setFields([]);
+          setIsLoading(false);
+          return;
+        }
+        
         setIsLoading(true);
-        const { data, error } = await supabase
+        
+        // First, check if the created_by_user_id column exists
+        const { data: columnExists, error: columnCheckError } = await supabase
+          .from('custom_field_definitions')
+          .select('created_by_user_id')
+          .limit(1);
+          
+        const hasCreatorColumn = !columnCheckError && 
+          columnExists && 
+          columnExists.length > 0 && 
+          'created_by_user_id' in columnExists[0];
+        
+        // Build the query based on whether the column exists
+        let query = supabase
           .from('custom_field_definitions')
           .select('*')
           .eq('project_id', projectId)
-          .eq('entity_type', entityType)
-          .order('position');
+          .eq('entity_type', entityType);
+          
+        // Only filter by creator if the column exists
+        if (hasCreatorColumn) {
+          // Get fields created by this user or default admin
+          query = query.or('created_by_user_id.eq.' + user.id + ',created_by_user_id.eq.default_admin,created_by_user_id.is.null');
+        }
+        
+        // Order by position
+        query = query.order('position');
+        
+        const { data, error } = await query;
 
         if (error) throw error;
         setFields(data || []);
@@ -85,7 +117,7 @@ export function CustomFieldsManager({
     if (projectId) {
       loadCustomFields();
     }
-  }, [projectId, entityType]);
+  }, [projectId, entityType, user]);
 
   // Save the updated field order after drag and drop
   const handleDragEnd = async (result: any) => {
@@ -120,6 +152,34 @@ export function CustomFieldsManager({
   // Delete a custom field definition
   const handleDeleteField = async (fieldId: string) => {
     try {
+      if (!user) {
+        setError('You must be logged in to delete custom fields');
+        return;
+      }
+      
+      // First, check if the created_by_user_id column exists
+      const { data: columnExists, error: columnCheckError } = await supabase
+        .from('custom_field_definitions')
+        .select('created_by_user_id')
+        .limit(1);
+        
+      const hasCreatorColumn = !columnCheckError && 
+        columnExists && 
+        columnExists.length > 0 && 
+        'created_by_user_id' in columnExists[0];
+      
+      if (hasCreatorColumn) {
+        // Only check if the user owns the field if the column exists
+        const fieldToDelete = fields.find(f => f.id === fieldId);
+        if (fieldToDelete && 
+            fieldToDelete.created_by_user_id && 
+            fieldToDelete.created_by_user_id !== user.id &&
+            fieldToDelete.created_by_user_id !== 'default_admin') {
+          setError('You can only delete your own custom fields');
+          return;
+        }
+      }
+      
       const { error } = await supabase
         .from('custom_field_definitions')
         .delete()
@@ -138,15 +198,36 @@ export function CustomFieldsManager({
   // Add or update a custom field
   const handleSaveField = async (field: Partial<CustomFieldDefinition>, isNew = false) => {
     try {
+      if (!user) {
+        setError('You must be logged in to save custom fields');
+        return;
+      }
+      
+      // First, check if the created_by_user_id column exists
+      const { data: columnExists, error: columnCheckError } = await supabase
+        .from('custom_field_definitions')
+        .select('created_by_user_id')
+        .limit(1);
+        
+      const hasCreatorColumn = !columnCheckError && 
+        columnExists && 
+        columnExists.length > 0 && 
+        'created_by_user_id' in columnExists[0];
+      
       if (isNew) {
         // Create new field
-        const newField = {
+        const newField: any = {
           ...field,
           project_id: projectId,
           entity_type: entityType,
           position: fields.length,
           is_required: field.is_required || false
         };
+        
+        // Only add creator if the column exists
+        if (hasCreatorColumn) {
+          newField.created_by_user_id = user.id;
+        }
         
         const { data, error } = await supabase
           .from('custom_field_definitions')
@@ -158,6 +239,19 @@ export function CustomFieldsManager({
           setFields([...fields, data[0]]);
         }
       } else {
+        // Update existing field
+        if (hasCreatorColumn) {
+          // Only check if the user owns the field if the column exists
+          const existingField = fields.find(f => f.id === field.id);
+          if (existingField && 
+              existingField.created_by_user_id && 
+              existingField.created_by_user_id !== user.id && 
+              existingField.created_by_user_id !== 'default_admin') {
+            setError('You can only edit your own custom fields');
+            return;
+          }
+        }
+        
         // Update existing field
         const { error } = await supabase
           .from('custom_field_definitions')

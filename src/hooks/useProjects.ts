@@ -19,19 +19,18 @@ export const useProjects = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isUserLoaded) return;
+    if (!isUserLoaded || !user) return;
     
     const fetchProjects = async () => {
       try {
         setIsLoading(true);
         setError(null);
         
-        // TEMPORARY SOLUTION: Fetch all projects for testing
-        // Will be replaced once project_members table is created
+        // Fetch only projects created by the current user
         const { data: projects, error: projectsError } = await supabase
           .from('projects')
           .select('*')
-          .limit(10); // Limiting to 10 for safety
+          .eq('user_id', user.id);
           
         if (projectsError) {
           throw new Error(`Error fetching projects: ${JSON.stringify(projectsError)}`);

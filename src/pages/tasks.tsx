@@ -44,10 +44,39 @@ export default function TasksPage() {
     setLoading(true);
     
     try {
-      // Fetch tasks with project info
+      if (!user) {
+        setTasks([]);
+        setLoading(false);
+        return;
+      }
+      
+      // First fetch projects belonging to the current user
+      const { data: userProjects, error: projectsError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('user_id', user.id);
+      
+      if (projectsError) {
+        console.error('Error fetching user projects:', projectsError);
+        setTasks([]);
+        setLoading(false);
+        return;
+      }
+      
+      if (!userProjects || userProjects.length === 0) {
+        setTasks([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Get project IDs
+      const projectIds = userProjects.map(p => p.id);
+      
+      // Fetch tasks with project info for user's projects
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select('*, projects(name)')
+        .in('project_id', projectIds)
         .order('created_at', { ascending: false });
         
       if (tasksError) throw tasksError;
@@ -65,11 +94,30 @@ export default function TasksPage() {
       }));
       
       // Fetch all custom field definitions
-      const { data: fieldDefinitions, error: fieldDefError } = await supabase
+      const { data: columnExists, error: columnCheckError } = await supabase
+        .from('custom_field_definitions')
+        .select('created_by_user_id')
+        .limit(1);
+          
+      const hasCreatorColumn = !columnCheckError && 
+        columnExists && 
+        columnExists.length > 0 && 
+        'created_by_user_id' in columnExists[0];
+
+      // Build the query for custom field definitions
+      let query = supabase
         .from('custom_field_definitions')
         .select('*')
         .eq('entity_type', 'task')
         .eq('project_id', 'global');
+          
+      // Only filter by creator if the column exists
+      if (hasCreatorColumn) {
+        // Get fields created by this user or default admin
+        query = query.or('created_by_user_id.eq.' + user.id + ',created_by_user_id.eq.default_admin,created_by_user_id.is.null');
+      }
+
+      const { data: fieldDefinitions, error: fieldDefError } = await query;
       
       if (fieldDefError) {
         console.error('Error fetching field definitions:', fieldDefError);
@@ -156,9 +204,16 @@ export default function TasksPage() {
   }
 
   async function fetchProjects() {
+    if (!user) {
+      setProjects([]);
+      return;
+    }
+    
     const { data, error } = await supabase
       .from('projects')
-      .select('id, name');
+      .select('id, name')
+      .eq('user_id', user.id);
+    
     if (!error && data) setProjects(data);
   }
 

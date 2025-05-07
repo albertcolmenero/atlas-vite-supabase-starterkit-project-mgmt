@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabaseClient';
 import { CustomFieldDefinition } from './CustomFieldsManager';
+import { useUser } from '@clerk/clerk-react';
 
 interface CustomFieldValue {
   id?: string;
@@ -56,6 +57,7 @@ export function CustomFieldsRenderer({
   onChange,
   disabled = false,
 }: CustomFieldsRendererProps) {
+  const { user } = useUser();
   const [fieldDefinitions, setFieldDefinitions] = useState<CustomFieldDefinition[]>([]);
   const [fieldValues, setFieldValues] = useState<Record<string, CustomFieldValue>>({});
   const [loading, setLoading] = useState(true);
@@ -65,16 +67,65 @@ export function CustomFieldsRenderer({
   useEffect(() => {
     async function loadFieldsAndValues() {
       try {
+        if (!user) {
+          setFieldDefinitions([]);
+          setLoading(false);
+          return;
+        }
+        
         setLoading(true);
         setError(null);
 
-        // Fetch field definitions
-        const { data: definitions, error: definitionsError } = await supabase
+        // First, verify access
+        let hasAccess = true;
+        if (entityType === 'project' && entityId) {
+          const { data: projectData, error: projectError } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('id', entityId)
+            .eq('user_id', user.id)
+            .maybeSingle();
+            
+          if (projectError || !projectData) {
+            // User doesn't have access to this project
+            hasAccess = false;
+          }
+        }
+        
+        if (!hasAccess) {
+          setFieldDefinitions([]);
+          setLoading(false);
+          return;
+        }
+
+        // Check if the created_by_user_id column exists
+        const { data: columnExists, error: columnCheckError } = await supabase
+          .from('custom_field_definitions')
+          .select('created_by_user_id')
+          .limit(1);
+          
+        const hasCreatorColumn = !columnCheckError && 
+          columnExists && 
+          columnExists.length > 0 && 
+          'created_by_user_id' in columnExists[0];
+
+        // Build the query based on whether the column exists
+        let query = supabase
           .from('custom_field_definitions')
           .select('*')
           .eq('project_id', projectId)
-          .eq('entity_type', entityType)
-          .order('position');
+          .eq('entity_type', entityType);
+          
+        // Only filter by creator if the column exists
+        if (hasCreatorColumn) {
+          // Get fields created by this user or default admin
+          query = query.or('created_by_user_id.eq.' + user.id + ',created_by_user_id.eq.default_admin,created_by_user_id.is.null');
+        }
+        
+        // Order by position
+        query = query.order('position');
+        
+        const { data: definitions, error: definitionsError } = await query;
 
         if (definitionsError) throw definitionsError;
 
@@ -116,7 +167,7 @@ export function CustomFieldsRenderer({
     if (projectId) {
       loadFieldsAndValues();
     }
-  }, [entityId, entityType, projectId]);
+  }, [entityId, entityType, projectId, user]);
 
   // Save a field value
   const saveFieldValue = async (
